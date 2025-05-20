@@ -31,6 +31,9 @@ jobs:
       - name: 🛠️ Build Spring Boot JAR
         run: ./gradlew bootJar
 
+      - name: 📦 Move JAR to root for Docker build
+        run: cp build/libs/*.jar app.jar
+
       - name: 🐳 Build and push Docker image
         run: |
           docker build -t $IMAGE -f docker/development/Dockerfile .
