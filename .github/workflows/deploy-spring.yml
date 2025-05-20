@@ -1,0 +1,51 @@
+name: 🚀 Build and Deploy Spring App to GHCR and Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 📥 Checkout source
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Set lowercase image name
+        run: |
+          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE=ghcr.io/$OWNER_LC/my-spring-app:latest" >> "$GITHUB_ENV"
+
+      - name: 🐙 Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: 🛠️ Build Spring Boot JAR
+        run: ./gradlew bootJar
+
+      - name: 🐳 Build and push Docker image
+        run: |
+          docker build -t $IMAGE -f docker/development/Dockerfile .
+          docker push $IMAGE
+
+  deploy-to-server:
+    runs-on: self-hosted
+    needs: build-and-push
+
+    steps:
+      - name: 🐙 Login to GHCR on self-hosted runner
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: 🚀 Pull and restart container
+        run: |
+          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          IMAGE=ghcr.io/$OWNER_LC/my-spring-app:latest
+          docker pull $IMAGE
+          docker stop my-spring-app || true
+          docker rm my-spring-app || true
+          docker run -d -p 8080:8080 --name my-spring-app $IMAGE
