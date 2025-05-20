@@ -34,10 +34,16 @@ jobs:
       - name: 📦 Move JAR to root for Docker build
         run: cp build/libs/*.jar app.jar
 
-      - name: 🐳 Build and push Docker image
+      - name: 🔧 Set up QEMU and Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🐳 Build and push multi-arch Docker image
         run: |
-          docker build -t $IMAGE -f docker/development/Dockerfile .
-          docker push $IMAGE
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t $IMAGE \
+            -f docker/development/Dockerfile \
+            --push .
 
   deploy-to-server:
     runs-on: self-hosted
